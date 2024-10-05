@@ -15,21 +15,33 @@ const ImageMaskEditor: React.FC = () => {
   const stageWidth = 600;
   const stageHeight = 400;
 
+  // Función para obtener la posición correcta dentro del canvas
+  const getPointerPosition = () => {
+    const pos = stageRef.current.getPointerPosition();
+    const { x, y } = pos;
+
+    // Asegurarnos de que las coordenadas estén dentro del área de la imagen
+    if (x < 0 || y < 0 || x > stageWidth || y > stageHeight) {
+      return null;
+    }
+    return pos;
+  };
+
   const handleMouseDown = () => {
     setIsDrawing(true);
-    const pos = stageRef.current.getPointerPosition();
-    setCurrentLine({ points: [pos.x, pos.y], strokeWidth: brushSize }); // Inicia un nuevo trazo con el tamaño del pincel actual
+    const pos = getPointerPosition();
+    if (pos) {
+      setCurrentLine({ points: [pos.x, pos.y], strokeWidth: brushSize }); // Inicia un nuevo trazo con el tamaño del pincel actual
+    }
   };
 
   const handleMouseMove = () => {
-    const stage = stageRef.current;
-    const point = stage.getPointerPosition();
-    setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo
-
-    if (isDrawing) {
+    const pos = getPointerPosition();
+    setMousePosition(pos); // Actualiza la posición del círculo
+    if (isDrawing && pos) {
       setCurrentLine((prevLine: any) => ({
         ...prevLine,
-        points: [...prevLine.points, point.x, point.y],
+        points: [...prevLine.points, pos.x, pos.y],
       })); // Añade puntos al trazo actual con el tamaño de pincel actual
     }
   };
@@ -178,7 +190,7 @@ const ImageMaskEditor: React.FC = () => {
             <Line
               points={currentLine.points}
               stroke="rgba(0, 120, 255, 0.5)"
-              strokeWidth={brushSize} // El grosor del pincel actual
+              strokeWidth={currentLine.strokeWidth} // Mantener el grosor del pincel actual durante el dibujo
               tension={0.5}
               lineCap="round"
               globalCompositeOperation="source-over"
