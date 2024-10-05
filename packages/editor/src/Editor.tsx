@@ -1,38 +1,58 @@
 import React, { useState, useRef } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line, Circle } from 'react-konva';
 import useImage from 'use-image';
 
 const ImageMaskEditor: React.FC = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [lines, setLines] = useState<any[]>([]);
-  const [currentLine, setCurrentLine] = useState<any | null>(null); // Línea actual en dibujo
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [lines, setLines] = useState<any[]>([]); // Almacenar los trazos de selección
   const [brushSize, setBrushSize] = useState(20); // Tamaño del pincel
+  const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | null>(null); // Posición del mouse para mostrar el círculo
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageURL || '');
 
+  const stageWidth = 600;
+  const stageHeight = 400;
+
   const handleMouseDown = () => {
-    setIsSelecting(true);
+    setIsDrawing(true);
     const pos = stageRef.current.getPointerPosition();
-    const newLine = { points: [pos.x, pos.y], strokeWidth: brushSize }; // Línea con el grosor actual
-    setCurrentLine(newLine); // Establecer la línea actual
+    setLines([...lines, { points: [pos.x, pos.y], strokeWidth: brushSize }]); // Inicia un nuevo trazo
   };
 
-  const handleMouseMove = () => {
-    if (!isSelecting) return;
-    const stage = stageRef.current;
-    const point = stage.getPointerPosition();
-    const updatedLine = { ...currentLine };
-    updatedLine.points = updatedLine.points.concat([point.x, point.y]);
-    setCurrentLine(updatedLine); // Actualizar la línea actual mientras se selecciona
+  const handleMouseMove = (e: any) => {
+    if (!isDrawing) {
+      const stage = stageRef.current;
+      const point = stage.getPointerPosition();
+      setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo
+    } else {
+      const stage = stageRef.current;
+      const point = stage.getPointerPosition();
+      const lastLine = lines[lines.length - 1];
+      lastLine.points = lastLine.points.concat([point.x, point.y]); // Continuar el trazo
+      setLines([...lines.slice(0, -1), lastLine]); // Actualizar el último trazo
+    }
   };
 
   const handleMouseUp = () => {
-    setIsSelecting(false);
-    if (currentLine) {
-      setLines([...lines, currentLine]); // Añadir la línea dibujada a las líneas finales
-      setCurrentLine(null); // Reiniciar la línea actual
+    setIsDrawing(false); // Detener el dibujo
+  };
+
+  // Función para ajustar la imagen a las dimensiones del Stage
+  const getAdjustedImageDimensions = (imgWidth: number, imgHeight: number) => {
+    const aspectRatio = imgWidth / imgHeight;
+    let newWidth = stageWidth;
+    let newHeight = stageHeight;
+
+    if (aspectRatio > 1) {
+      // Imagen más ancha que alta
+      newHeight = stageWidth / aspectRatio;
+    } else {
+      // Imagen más alta que ancha
+      newWidth = stageHeight * aspectRatio;
     }
+
+    return { width: newWidth, height: newHeight };
   };
 
   // Función para guardar la imagen con la selección
@@ -41,7 +61,7 @@ const ImageMaskEditor: React.FC = () => {
       mimeType: 'image/png',
       quality: 1,
     });
-    
+
     // Crear un enlace para descargar la imagen
     const link = document.createElement('a');
     link.download = 'edited-image.png';
@@ -78,40 +98,44 @@ const ImageMaskEditor: React.FC = () => {
 
       {/* Canvas con Konva */}
       <Stage
-        width={window.innerWidth}
-        height={window.innerHeight - 150}
+        width={stageWidth}
+        height={stageHeight}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         ref={stageRef}
-        style={{ border: '1px solid black' }}
+        style={{ border: '1px solid black', margin: '20px 0' }}
       >
         <Layer>
-          {/* Mostrar la imagen cargada */}
-          {image && <KonvaImage image={image} width={600} height={400} />}
-          
-          {/* Dibujar las líneas seleccionadas */}
+          {/* Mostrar la imagen cargada y ajustar al tamaño del Stage */}
+          {image && (
+            <KonvaImage
+              image={image}
+              {...getAdjustedImageDimensions(image.width, image.height)}
+            />
+          )}
+
+          {/* Dibujar las áreas seleccionadas como líneas libres */}
           {lines.map((line, i) => (
             <Line
               key={i}
               points={line.points}
               stroke="rgba(0, 120, 255, 0.5)" // Color de selección azul semitransparente
-              strokeWidth={line.strokeWidth} // Mantiene el grosor de pincel usado en el momento de la selección
+              strokeWidth={line.strokeWidth} // Mantiene el grosor del pincel usado
               tension={0.5}
               lineCap="round"
               globalCompositeOperation="source-over"
             />
           ))}
 
-          {/* Dibujar la línea actual mientras se está seleccionando */}
-          {currentLine && (
-            <Line
-              points={currentLine.points}
-              stroke="rgba(0, 120, 255, 0.5)"
-              strokeWidth={currentLine.strokeWidth} // El grosor del pincel actual
-              tension={0.5}
-              lineCap="round"
-              globalCompositeOperation="source-over"
+          {/* Círculo que muestra el área del pincel antes de dibujar */}
+          {mousePosition && !isDrawing && (
+            <Circle
+              x={mousePosition.x}
+              y={mousePosition.y}
+              radius={brushSize / 2}
+              stroke="rgba(0, 120, 255, 1)"
+              strokeWidth={2}
             />
           )}
         </Layer>
