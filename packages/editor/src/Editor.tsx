@@ -21,13 +21,11 @@ const ImageMaskEditor: React.FC = () => {
   };
 
   const handleMouseMove = (e: any) => {
-    if (!isDrawing) {
-      const stage = stageRef.current;
-      const point = stage.getPointerPosition();
-      setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo
-    } else {
-      const stage = stageRef.current;
-      const point = stage.getPointerPosition();
+    const stage = stageRef.current;
+    const point = stage.getPointerPosition();
+    setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo en todo momento
+
+    if (isDrawing) {
       const lastLine = lines[lines.length - 1];
       lastLine.points = lastLine.points.concat([point.x, point.y]); // Continuar el trazo
       setLines([...lines.slice(0, -1), lastLine]); // Actualizar el último trazo
@@ -128,13 +126,13 @@ const ImageMaskEditor: React.FC = () => {
             />
           ))}
 
-          {/* Círculo que muestra el área del pincel antes de dibujar */}
-          {mousePosition && !isDrawing && (
+          {/* Círculo que muestra el área del pincel antes y durante el dibujo */}
+          {mousePosition && (
             <Circle
               x={mousePosition.x}
               y={mousePosition.y}
               radius={brushSize / 2}
-              stroke="rgba(0, 120, 255, 1)"
+              stroke="#e1e1e1"
               strokeWidth={2}
             />
           )}
