@@ -6,7 +6,7 @@ const ImageMaskEditor: React.FC = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [allLines, setAllLines] = useState<any[]>([]); // Almacenar todas las líneas seleccionadas
-  const [currentLine, setCurrentLine] = useState<number[]>([]); // Almacenar puntos de la línea actual
+  const [currentLine, setCurrentLine] = useState<any>({ points: [], strokeWidth: 20 }); // Puntos de la línea actual con el tamaño del pincel
   const [brushSize, setBrushSize] = useState(20); // Tamaño del pincel
   const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | null>(null); // Posición del mouse para mostrar el círculo
   const stageRef = useRef<any>(null);
@@ -18,7 +18,7 @@ const ImageMaskEditor: React.FC = () => {
   const handleMouseDown = () => {
     setIsDrawing(true);
     const pos = stageRef.current.getPointerPosition();
-    setCurrentLine([pos.x, pos.y]); // Inicia un nuevo trazo
+    setCurrentLine({ points: [pos.x, pos.y], strokeWidth: brushSize }); // Inicia un nuevo trazo con el tamaño del pincel actual
   };
 
   const handleMouseMove = () => {
@@ -27,17 +27,20 @@ const ImageMaskEditor: React.FC = () => {
     setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo
 
     if (isDrawing) {
-      setCurrentLine((prevLine) => [...prevLine, point.x, point.y]); // Añade puntos al trazo actual
+      setCurrentLine((prevLine: any) => ({
+        ...prevLine,
+        points: [...prevLine.points, point.x, point.y],
+      })); // Añade puntos al trazo actual con el tamaño de pincel actual
     }
   };
 
   const handleMouseUp = () => {
     setIsDrawing(false);
-    if (currentLine.length > 0) {
+    if (currentLine.points.length > 0) {
       // Fusiona las áreas si están lo suficientemente cerca
       const mergedLines = mergeWithExistingLines(allLines, currentLine);
       setAllLines(mergedLines); // Actualizar las líneas seleccionadas
-      setCurrentLine([]); // Reiniciar el trazo actual
+      setCurrentLine({ points: [], strokeWidth: brushSize }); // Reiniciar el trazo actual manteniendo el tamaño de pincel actual
     }
   };
 
@@ -57,15 +60,18 @@ const ImageMaskEditor: React.FC = () => {
   };
 
   // Función para fusionar líneas si están lo suficientemente cerca
-  const mergeWithExistingLines = (lines: any[], newLine: number[]) => {
+  const mergeWithExistingLines = (lines: any[], newLine: any) => {
     const mergedLines = [...lines]; // Copia de las líneas existentes
     let merged = false;
 
     // Comprobar si el nuevo trazo debe fusionarse con una línea existente
     for (let i = 0; i < mergedLines.length; i++) {
       const existingLine = mergedLines[i];
-      if (areLinesClose(existingLine, newLine)) {
-        mergedLines[i] = [...existingLine, ...newLine]; // Fusionar las líneas
+      if (areLinesClose(existingLine.points, newLine.points)) {
+        mergedLines[i] = {
+          ...existingLine,
+          points: [...existingLine.points, ...newLine.points], // Fusionar las líneas
+        };
         merged = true;
         break;
       }
@@ -154,13 +160,13 @@ const ImageMaskEditor: React.FC = () => {
             />
           )}
 
-          {/* Dibujar todas las áreas seleccionadas */}
+          {/* Dibujar todas las áreas seleccionadas con el tamaño de pincel original */}
           {allLines.map((line, i) => (
             <Line
               key={i}
-              points={line}
+              points={line.points}
               stroke="rgba(0, 120, 255, 0.5)" // Color de selección azul semitransparente
-              strokeWidth={brushSize} // Mantiene el grosor del pincel usado
+              strokeWidth={line.strokeWidth} // Mantener el grosor original de cada área seleccionada
               tension={0.5}
               lineCap="round"
               globalCompositeOperation="source-over"
@@ -168,9 +174,9 @@ const ImageMaskEditor: React.FC = () => {
           ))}
 
           {/* Dibujar el área actual mientras se está seleccionando */}
-          {currentLine.length > 0 && (
+          {currentLine.points.length > 0 && (
             <Line
-              points={currentLine}
+              points={currentLine.points}
               stroke="rgba(0, 120, 255, 0.5)"
               strokeWidth={brushSize} // El grosor del pincel actual
               tension={0.5}
