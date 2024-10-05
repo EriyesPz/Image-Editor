@@ -1,0 +1,1 @@
+export { routerImage } from "./routes";

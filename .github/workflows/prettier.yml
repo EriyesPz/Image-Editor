@@ -1,0 +1,46 @@
+name: Prettier Format
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Prettier and auto-fix
+        run: npm run format
+
+      - name: Configure Git user
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions Bot"
+
+      - name: Pull latest changes to avoid conflicts
+        run: git pull --rebase origin ${{ github.head_ref }}
+
+      - name: Commit changes
+        run: |
+          git add .
+          git commit -m "chore: auto-format code with Prettier" || echo "No changes to commit"
+
+      - name: Push changes
+        run: git push origin ${{ github.head_ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

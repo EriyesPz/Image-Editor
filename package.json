@@ -1,0 +1,29 @@
+{
+  "name": "image-gen",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:api": "npm --workspace packages/api run dev",
+    "dev:editor": "npm --workspace packages/editor run dev",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:editor\"",
+    "build:api": "npm --workspace packages/api run build",
+    "build:editor": "npm --workspace packages/editor run build",
+    "build": "npm run build:api && npm run build:editor",
+    "start": "npm --workspace packages/api run start",
+    "format:api": "npm --workspace packages/api run format",
+    "format:editor": "npm --workspace packages/editor run format",
+    "format": "npm run format:api && npm run format:editor",
+    "lint:api": "npm --workspace packages/api run lint",
+    "lint:editor": "npm --workspace packages/editor run lint",
+    "lint": "npm run lint:api && npm run lint:editor"
+  },
+  "keywords": [],
+  "author": "g7-solutions<info@g7solutions.com>",
+  "license": "ISC",
+  "description": ""
+}

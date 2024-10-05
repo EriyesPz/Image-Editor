@@ -1,0 +1,19 @@
+# Ignore .env files
+**/.env
+
+# Ignore files inside "Logs" folder
+Logs/**
+
+# Ignore files inside "node_modules" folder
+node_modules/**
+
+# Ignore files inside "docker" folder
+docker/**
+
+# Ignore package.json and lock files
+package.json
+package-lock.json
+yarn.lock
+
+# Ignore tsconfig.json file
+tsconfig.json
