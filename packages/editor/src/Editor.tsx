@@ -6,8 +6,8 @@ const ImageMaskEditor: React.FC = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [allLines, setAllLines] = useState<any[]>([]); // Almacenar todas las líneas seleccionadas
-  const [currentLine, setCurrentLine] = useState<any>({ points: [], strokeWidth: 20 }); // Puntos de la línea actual con el tamaño del pincel
-  const [brushSize, setBrushSize] = useState(20); // Tamaño del pincel
+  const [currentLine, setCurrentLine] = useState<any>({ points: [], strokeWidth: 20 }); // Línea actual
+  const [brushSize, setBrushSize] = useState(20); // Tamaño del pincel actual
   const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | null>(null); // Posición del mouse para mostrar el círculo
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageURL || '');
@@ -15,44 +15,43 @@ const ImageMaskEditor: React.FC = () => {
   const stageWidth = 600;
   const stageHeight = 400;
 
-  // Función para obtener la posición correcta dentro del canvas
-  const getPointerPosition = () => {
-    const pos = stageRef.current.getPointerPosition();
-    const { x, y } = pos;
-
-    // Asegurarnos de que las coordenadas estén dentro del área de la imagen
-    if (x < 0 || y < 0 || x > stageWidth || y > stageHeight) {
-      return null;
-    }
-    return pos;
-  };
+  // Distancia mínima para evitar añadir puntos cercanos (elimina superposiciones visuales)
+  const MIN_DISTANCE = 5;
 
   const handleMouseDown = () => {
     setIsDrawing(true);
-    const pos = getPointerPosition();
-    if (pos) {
-      setCurrentLine({ points: [pos.x, pos.y], strokeWidth: brushSize }); // Inicia un nuevo trazo con el tamaño del pincel actual
-    }
+    const pos = stageRef.current.getPointerPosition();
+    setCurrentLine({ points: [pos.x, pos.y], strokeWidth: brushSize }); // Inicia un nuevo trazo con el tamaño del pincel actual
   };
 
   const handleMouseMove = () => {
-    const pos = getPointerPosition();
-    setMousePosition(pos); // Actualiza la posición del círculo
-    if (isDrawing && pos) {
-      setCurrentLine((prevLine: any) => ({
-        ...prevLine,
-        points: [...prevLine.points, pos.x, pos.y],
-      })); // Añade puntos al trazo actual con el tamaño de pincel actual
+    const stage = stageRef.current;
+    const point = stage.getPointerPosition();
+    setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo
+
+    if (isDrawing) {
+      const lastPointIndex = currentLine.points.length - 2; // Último punto
+      const dx = point.x - currentLine.points[lastPointIndex];
+      const dy = point.y - currentLine.points[lastPointIndex + 1];
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Añadir puntos solo si la distancia es mayor a un umbral (para evitar puntos muy juntos)
+      if (distance > MIN_DISTANCE) {
+        setCurrentLine((prevLine: any) => ({
+          ...prevLine,
+          points: [...prevLine.points, point.x, point.y], // Añadir nuevos puntos a la línea actual
+        }));
+      }
     }
   };
 
   const handleMouseUp = () => {
     setIsDrawing(false);
     if (currentLine.points.length > 0) {
-      // Fusiona las áreas si están lo suficientemente cerca
+      // Fusionar si las líneas están lo suficientemente cerca
       const mergedLines = mergeWithExistingLines(allLines, currentLine);
-      setAllLines(mergedLines); // Actualizar las líneas seleccionadas
-      setCurrentLine({ points: [], strokeWidth: brushSize }); // Reiniciar el trazo actual manteniendo el tamaño de pincel actual
+      setAllLines(mergedLines); // Actualizar todas las líneas
+      setCurrentLine({ points: [], strokeWidth: brushSize }); // Reiniciar la línea actual manteniendo el tamaño del pincel actual
     }
   };
 
@@ -80,6 +79,7 @@ const ImageMaskEditor: React.FC = () => {
     for (let i = 0; i < mergedLines.length; i++) {
       const existingLine = mergedLines[i];
       if (areLinesClose(existingLine.points, newLine.points)) {
+        // Fusionar los puntos de las líneas sin cambiar el grosor del pincel existente
         mergedLines[i] = {
           ...existingLine,
           points: [...existingLine.points, ...newLine.points], // Fusionar las líneas
@@ -110,6 +110,15 @@ const ImageMaskEditor: React.FC = () => {
       }
     }
     return false;
+  };
+
+  // Función para verificar si dos líneas son idénticas y evitar solapamientos visuales
+  const areLinesIdentical = (lineA: number[], lineB: number[]) => {
+    if (lineA.length !== lineB.length) return false;
+    for (let i = 0; i < lineA.length; i++) {
+      if (lineA[i] !== lineB[i]) return false;
+    }
+    return true;
   };
 
   // Función para guardar la imagen con la selección
