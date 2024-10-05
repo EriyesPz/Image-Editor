@@ -5,7 +5,8 @@ import useImage from 'use-image';
 const ImageMaskEditor: React.FC = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [lines, setLines] = useState<any[]>([]); // Almacenar los trazos de selección
+  const [allLines, setAllLines] = useState<any[]>([]); // Almacenar todas las líneas seleccionadas
+  const [currentLine, setCurrentLine] = useState<number[]>([]); // Almacenar puntos de la línea actual
   const [brushSize, setBrushSize] = useState(20); // Tamaño del pincel
   const [mousePosition, setMousePosition] = useState<{ x: number, y: number } | null>(null); // Posición del mouse para mostrar el círculo
   const stageRef = useRef<any>(null);
@@ -17,23 +18,27 @@ const ImageMaskEditor: React.FC = () => {
   const handleMouseDown = () => {
     setIsDrawing(true);
     const pos = stageRef.current.getPointerPosition();
-    setLines([...lines, { points: [pos.x, pos.y], strokeWidth: brushSize }]); // Inicia un nuevo trazo
+    setCurrentLine([pos.x, pos.y]); // Inicia un nuevo trazo
   };
 
-  const handleMouseMove = (e: any) => {
+  const handleMouseMove = () => {
     const stage = stageRef.current;
     const point = stage.getPointerPosition();
-    setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo en todo momento
+    setMousePosition({ x: point.x, y: point.y }); // Actualiza la posición del círculo
 
     if (isDrawing) {
-      const lastLine = lines[lines.length - 1];
-      lastLine.points = lastLine.points.concat([point.x, point.y]); // Continuar el trazo
-      setLines([...lines.slice(0, -1), lastLine]); // Actualizar el último trazo
+      setCurrentLine((prevLine) => [...prevLine, point.x, point.y]); // Añade puntos al trazo actual
     }
   };
 
   const handleMouseUp = () => {
-    setIsDrawing(false); // Detener el dibujo
+    setIsDrawing(false);
+    if (currentLine.length > 0) {
+      // Fusiona las áreas si están lo suficientemente cerca
+      const mergedLines = mergeWithExistingLines(allLines, currentLine);
+      setAllLines(mergedLines); // Actualizar las líneas seleccionadas
+      setCurrentLine([]); // Reiniciar el trazo actual
+    }
   };
 
   // Función para ajustar la imagen a las dimensiones del Stage
@@ -43,14 +48,50 @@ const ImageMaskEditor: React.FC = () => {
     let newHeight = stageHeight;
 
     if (aspectRatio > 1) {
-      // Imagen más ancha que alta
       newHeight = stageWidth / aspectRatio;
     } else {
-      // Imagen más alta que ancha
       newWidth = stageHeight * aspectRatio;
     }
 
     return { width: newWidth, height: newHeight };
+  };
+
+  // Función para fusionar líneas si están lo suficientemente cerca
+  const mergeWithExistingLines = (lines: any[], newLine: number[]) => {
+    const mergedLines = [...lines]; // Copia de las líneas existentes
+    let merged = false;
+
+    // Comprobar si el nuevo trazo debe fusionarse con una línea existente
+    for (let i = 0; i < mergedLines.length; i++) {
+      const existingLine = mergedLines[i];
+      if (areLinesClose(existingLine, newLine)) {
+        mergedLines[i] = [...existingLine, ...newLine]; // Fusionar las líneas
+        merged = true;
+        break;
+      }
+    }
+
+    // Si no se ha fusionado, añadir como una nueva línea
+    if (!merged) {
+      mergedLines.push(newLine);
+    }
+
+    return mergedLines;
+  };
+
+  // Función para verificar si dos líneas están lo suficientemente cerca para fusionarse
+  const areLinesClose = (lineA: number[], lineB: number[], threshold = 25) => {
+    for (let i = 0; i < lineA.length; i += 2) {
+      for (let j = 0; j < lineB.length; j += 2) {
+        const dx = lineA[i] - lineB[j];
+        const dy = lineA[i + 1] - lineB[j + 1];
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < threshold) {
+          return true;
+        }
+      }
+    }
+    return false;
   };
 
   // Función para guardar la imagen con la selección
@@ -89,7 +130,7 @@ const ImageMaskEditor: React.FC = () => {
       <input
         type="range"
         min="1"
-        max="50"
+        max="100"
         value={brushSize}
         onChange={(e) => setBrushSize(Number(e.target.value))}
       />
@@ -113,18 +154,30 @@ const ImageMaskEditor: React.FC = () => {
             />
           )}
 
-          {/* Dibujar las áreas seleccionadas como líneas libres */}
-          {lines.map((line, i) => (
+          {/* Dibujar todas las áreas seleccionadas */}
+          {allLines.map((line, i) => (
             <Line
               key={i}
-              points={line.points}
+              points={line}
               stroke="rgba(0, 120, 255, 0.5)" // Color de selección azul semitransparente
-              strokeWidth={line.strokeWidth} // Mantiene el grosor del pincel usado
+              strokeWidth={brushSize} // Mantiene el grosor del pincel usado
               tension={0.5}
               lineCap="round"
               globalCompositeOperation="source-over"
             />
           ))}
+
+          {/* Dibujar el área actual mientras se está seleccionando */}
+          {currentLine.length > 0 && (
+            <Line
+              points={currentLine}
+              stroke="rgba(0, 120, 255, 0.5)"
+              strokeWidth={brushSize} // El grosor del pincel actual
+              tension={0.5}
+              lineCap="round"
+              globalCompositeOperation="source-over"
+            />
+          )}
 
           {/* Círculo que muestra el área del pincel antes y durante el dibujo */}
           {mousePosition && (
