@@ -1,32 +1,46 @@
 import React, { useState, useRef } from 'react';
-import { Stage, Layer, Image as KonvaImage, Line } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line, Circle } from 'react-konva';
 import useImage from 'use-image';
 
 const ImageMaskEditor: React.FC = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
   const [lines, setLines] = useState<any[]>([]);
-  const [brushSize, setBrushSize] = useState(10); // Tamaño del pincel ajustable
+  const [brushSize, setBrushSize] = useState(20); // Tamaño del pincel
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageURL || '');
-
+  
   const handleMouseDown = () => {
-    setIsDrawing(true);
+    setIsSelecting(true);
     const pos = stageRef.current.getPointerPosition();
-    setLines([...lines, { points: [pos.x, pos.y] }]); // Inicia el trazo en la posición actual del mouse
+    setLines([...lines, { points: [pos.x, pos.y] }]); // Inicia la selección
   };
 
   const handleMouseMove = () => {
-    if (!isDrawing) return;
+    if (!isSelecting) return;
     const stage = stageRef.current;
     const point = stage.getPointerPosition();
     const lastLine = lines[lines.length - 1];
     lastLine.points = lastLine.points.concat([point.x, point.y]);
-    setLines(lines.concat());
+    setLines([...lines]);
   };
 
   const handleMouseUp = () => {
-    setIsDrawing(false);
+    setIsSelecting(false);
+  };
+
+  // Función para guardar la imagen con la selección
+  const handleSaveImage = () => {
+    const uri = stageRef.current.toDataURL({
+      mimeType: 'image/png',
+      quality: 1,
+    });
+    
+    // Crear un enlace para descargar la imagen
+    const link = document.createElement('a');
+    link.download = 'edited-image.png';
+    link.href = uri;
+    link.click();
   };
 
   return (
@@ -70,20 +84,23 @@ const ImageMaskEditor: React.FC = () => {
           {/* Mostrar la imagen cargada */}
           {image && <KonvaImage image={image} width={600} height={400} />}
           
-          {/* Dibujar las líneas libres (selección de máscara) */}
+          {/* Dibujar las líneas seleccionadas */}
           {lines.map((line, i) => (
             <Line
               key={i}
               points={line.points}
-              stroke="rgba(255, 0, 0, 0.5)" // Color de la máscara semitransparente
-              strokeWidth={brushSize} // Tamaño del pincel
+              stroke="rgba(0, 120, 255, 0.5)" // Color de selección azul semitransparente
+              strokeWidth={brushSize}
               tension={0.5}
               lineCap="round"
-              globalCompositeOperation="source-over" // Modo de composición para dibujar
+              globalCompositeOperation="source-over"
             />
           ))}
         </Layer>
       </Stage>
+
+      {/* Botón para guardar la imagen con la selección */}
+      <button onClick={handleSaveImage}>Guardar imagen con selección</button>
     </div>
   );
 };
