@@ -1,9 +1,9 @@
-import { ImageEditor } from "./Editor";
+import { ImageMaskEditor } from "./Editor";
 function App() {
 
   return (
-    <ImageEditor>
-    </ImageEditor>
+    <ImageMaskEditor>
+    </ImageMaskEditor>
   );
 }
 

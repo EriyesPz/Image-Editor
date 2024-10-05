@@ -1,37 +1,39 @@
 import React, { useState, useRef } from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Line } from 'react-konva';
 import useImage from 'use-image';
 
-const ImageEditor: React.FC = () => {
+const ImageMaskEditor: React.FC = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
-  const [selection, setSelection] = useState<any[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [lines, setLines] = useState<any[]>([]);
+  const [brushSize, setBrushSize] = useState(10); // Tamaño del pincel ajustable
   const stageRef = useRef<any>(null);
   const [image] = useImage(imageURL || '');
-  const [isSelecting, setIsSelecting] = useState(false);
 
-  const handleMouseDown = (e: any) => {
-    setIsSelecting(true);
-    const { x, y } = e.target.getStage().getPointerPosition();
-    setSelection([{ x, y, width: 0, height: 0 }]);
+  const handleMouseDown = () => {
+    setIsDrawing(true);
+    const pos = stageRef.current.getPointerPosition();
+    setLines([...lines, { points: [pos.x, pos.y] }]); // Inicia el trazo en la posición actual del mouse
   };
 
-  const handleMouseMove = (e: any) => {
-    if (!isSelecting) return;
-    const stage = stageRef.current.getStage();
+  const handleMouseMove = () => {
+    if (!isDrawing) return;
+    const stage = stageRef.current;
     const point = stage.getPointerPosition();
-    const newSelection = selection[0];
-    newSelection.width = point.x - newSelection.x;
-    newSelection.height = point.y - newSelection.y;
-    setSelection([newSelection]);
+    const lastLine = lines[lines.length - 1];
+    lastLine.points = lastLine.points.concat([point.x, point.y]);
+    setLines(lines.concat());
   };
 
   const handleMouseUp = () => {
-    setIsSelecting(false);
+    setIsDrawing(false);
   };
 
   return (
     <div>
-      <h2>Select an Area to Edit</h2>
+      <h2>Image Mask Editor</h2>
+
+      {/* Input para cargar la imagen */}
       <input
         type="file"
         accept="image/png, image/jpeg"
@@ -43,6 +45,18 @@ const ImageEditor: React.FC = () => {
           }
         }}
       />
+
+      {/* Control deslizante para cambiar el tamaño del pincel */}
+      <label>Tamaño del pincel: {brushSize}px</label>
+      <input
+        type="range"
+        min="1"
+        max="50"
+        value={brushSize}
+        onChange={(e) => setBrushSize(Number(e.target.value))}
+      />
+
+      {/* Canvas con Konva */}
       <Stage
         width={window.innerWidth}
         height={window.innerHeight - 150}
@@ -50,19 +64,22 @@ const ImageEditor: React.FC = () => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         ref={stageRef}
+        style={{ border: '1px solid black' }}
       >
         <Layer>
+          {/* Mostrar la imagen cargada */}
           {image && <KonvaImage image={image} width={600} height={400} />}
-          {selection.map((sel, index) => (
-            <Rect
-              key={index}
-              x={sel.x}
-              y={sel.y}
-              width={sel.width}
-              height={sel.height}
-              fill="rgba(0, 120, 255, 0.5)"
-              stroke="blue"
-              strokeWidth={2}
+          
+          {/* Dibujar las líneas libres (selección de máscara) */}
+          {lines.map((line, i) => (
+            <Line
+              key={i}
+              points={line.points}
+              stroke="rgba(255, 0, 0, 0.5)" // Color de la máscara semitransparente
+              strokeWidth={brushSize} // Tamaño del pincel
+              tension={0.5}
+              lineCap="round"
+              globalCompositeOperation="source-over" // Modo de composición para dibujar
             />
           ))}
         </Layer>
@@ -71,4 +88,4 @@ const ImageEditor: React.FC = () => {
   );
 };
 
-export { ImageEditor };
+export { ImageMaskEditor };
